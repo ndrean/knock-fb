@@ -2,7 +2,7 @@ import React from "react";
 import ReactModalLogin from "react-modal-login";
 import Container from "react-bootstrap/Container";
 
-import { myappId } from "./ids";
+import { myappId, uri } from "./ids";
 
 const facebookConfig = {
   appId: myappId,
@@ -119,31 +119,34 @@ fields=id,name,email,picture.width(640).height(640)`);
       });
       // fetch the jwt token from the backend
       try {
-        const get_user_token = await fetch(
-          "http://localhost:3001/api/v1/userToken",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: userData,
-          }
-        );
-        const { jwt } = await get_user_token.json();
-        console.log(jwt);
-
-        const fetchData = await fetch("http://localhost:3001/api/v1/users", {
+        const get_user_token = await fetch(uri + "getUserToken", {
+          method: "POST",
           headers: {
-            authorization: `Bearer ${jwt}`,
+            "Content-Type": "application/json",
           },
+          body: userData,
         });
-        const users = await fetchData.json();
-        console.log(users);
+        console.log(get_user_token);
+        if (get_user_token.ok) {
+          setLoggedIn(true);
+          const { jwt } = await get_user_token.json();
+          console.log(jwt);
+          const fetchData = await fetch(uri + "users", {
+            headers: {
+              authorization: `Bearer ${jwt}`,
+            },
+          });
+          const users = await fetchData.json();
+          console.log(users);
+        } else {
+          alert("not found");
+          setLoggedIn(false);
+        }
       } catch (err) {
         console.log(err);
       }
     }
-    setLoggedIn(true);
+
     closeModal();
   }
 
