@@ -1,5 +1,5 @@
 Knock.setup do |config|
-  config.token_secret_signature_key = -> { Rails.application.credentials.read }
+  config.token_secret_signature_key = -> { Rails.application.secret_key_base }
   # Rails.application.credentials.fetch(:secret_key_base)
   
 # https://medium.com/@kirill_shevch/encrypted-secrets-credentials-in-rails-6-rails-5-1-5-2-f470accd62fc

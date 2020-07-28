@@ -1,0 +1,8 @@
+Hi <%= @user_email %>
+
+<p> Thanks for registering to goDownWind.online ! Please click the link below to confirm registration </p>
+<p>
+    <a href="http://localhost:3001/api/v1/mailconfirmation/?mail_token=<%=@user_confirmation_token%>">
+        Confirm my account
+    </a>
+</p>

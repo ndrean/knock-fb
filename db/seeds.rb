@@ -8,6 +8,7 @@
 puts "cleaning"
 User.destroy_all
 puts "creating..."
-User.create!(email:"toto@test.fr", name:"toto", password: "password")
-User.create!(email:"t@test.fr", name:"t", password:"password")
+User.create!(email:"toto@test.fr", name:"toto", password: "password", confirm_email: "true")
+User.create!(email:"t@test.fr", name:"t", password:"password", confirm_email: "true")
+# User.create!(email: "nevendrean@yahoo.fr", password:"password")
 puts "done!"

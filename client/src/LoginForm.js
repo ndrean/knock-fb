@@ -1,6 +1,9 @@
 import React from "react";
 import ReactModalLogin from "react-modal-login";
 import Container from "react-bootstrap/Container";
+import Row from "react-bootstrap/Row";
+import Col from "react-bootstrap/Col";
+import Nav from "react-bootstrap/Nav";
 
 import { myappId, uri } from "./ids";
 
@@ -25,9 +28,9 @@ export default function LoginForm() {
 
   function openModal() {
     // setShowModal(true);
-    if (loggedIn === false) {
-      setShowModal(true);
-    }
+    // if (loggedIn === false) {
+    setShowModal(true);
+    // }
   }
 
   function closeModal() {
@@ -37,16 +40,12 @@ export default function LoginForm() {
 
   function onLogin() {
     console.log("_onLogin_");
-
     const email = document.querySelector("#email").value;
     const password = document.querySelector("#password").value;
-    console.log("email: ", email);
-    console.log("password: ", password);
-
     if (!email || !password) {
       setError(true);
     } else {
-      onLoginSuccess("formIn", { email: email, password: password });
+      onLoginSuccess("formIn", { email, password });
     }
   }
 
@@ -77,6 +76,9 @@ export default function LoginForm() {
   }
 
   async function onLoginSuccess(method, response) {
+    setResult({ method, response });
+    const { email, password } = response;
+
     if (method === "facebook") {
       const {
         authResponse: { accessToken, userID },
@@ -95,64 +97,176 @@ fields=id,name,email,picture.width(640).height(640)`);
         },
       } = await query.json();
 
-      setResult({ method, accessToken, email, name, FBId: id, url });
-      // const user = JSON.stringify({
-      //   auth: { email: email, password: password },
-      // });
-      // const get_token = await fetchWithRailsToken(
-      //   "http://localhost:3000/api/v1/userToken",
-      //   {
-      //     options: {
-      //       method: "POST",
-      //       "Content-Type": "application/json",
-      //       body: user,
-      //     },
-      //   }
-      // );
-      // const jwtToken = await get_token.json();
-      // console.log(jwtToken);
-    } else {
-      const { email, password } = response;
-      setResult({ method, email, password });
-      const userData = JSON.stringify({
-        auth: { email: email, password: password },
+      setResult((prev) => {
+        return { ...prev, accessToken, email, name, FBId: id, url };
       });
-      // fetch the jwt token from the backend
+      const fbUser = JSON.stringify({
+        user: { email: email, password: accessToken },
+      });
       try {
-        const get_user_token = await fetch(uri + "getUserToken", {
+        const checkFbUser = await fetch(uri + "/api/v1/findCreateUser", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: fbUser,
+        });
+        if (checkFbUser.ok) {
+          const fbUser = await checkFbUser.json();
+          try {
+            const FbUserData = JSON.stringify({
+              auth: {
+                email: fbUser.email,
+                password_digest: fbUser.password_digest,
+              },
+            });
+            const getFbUserToken = fetch(uri + "/api/v1/getUserToken", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: FbUserData,
+            });
+            if (getFbUserToken.ok) {
+              const data = await getFbUserToken.json();
+            } else {
+              alert("failed");
+            }
+          } catch (err) {
+            onLoginFail(err);
+            // alert(err);
+            // console.log("err1", err);
+          }
+        } else {
+          onLoginFail("You are not signed up");
+        }
+      } catch (err) {
+        throw new Error(err);
+      }
+    }
+
+    if (method === "formUp") {
+      // 1- check if user already exists with these credentials
+      const authData = JSON.stringify({
+        auth: { email: response.email, password: response.password },
+      });
+      try {
+        const getUserToken = await fetch(uri + "/api/v1/getUserToken", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: userData,
+          body: authData,
         });
-        console.log(get_user_token);
-        if (get_user_token.ok) {
+        if (getUserToken.ok) {
+          // if yes, return token
+          alert("Connected");
           setLoggedIn(true);
-          const { jwt } = await get_user_token.json();
-          console.log(jwt);
-          const fetchData = await fetch(uri + "users", {
-            headers: {
-              authorization: `Bearer ${jwt}`,
-            },
+
+          const { jwt } = await getUserToken.json();
+          const userLS = { email, password };
+          localStorage.setItem("user", JSON.stringify(userLS));
+          localStorage.setItem("jwt", jwt);
+          setResult((prev) => {
+            return { ...prev, jwt: jwt };
           });
-          const users = await fetchData.json();
-          console.log(users);
         } else {
-          alert("not found");
-          setLoggedIn(false);
+          console.log("__update__");
+          // credentials don't exist: update with received credentials via email
+          const userData = JSON.stringify({
+            user: { email: response.email, password: response.password },
+          });
+          const checkUser = await fetch(uri + "/api/v1/findCreateUser", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: userData,
+          });
+
+          if (checkUser.ok) {
+            const authData = JSON.stringify({
+              auth: { email, password },
+            });
+            try {
+              const getUserToken = await fetch(uri + "/api/v1/getUserToken", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: authData,
+              });
+              const { jwt } = await getUserToken.json();
+              if (getUserToken.ok) {
+                const getCurrentUser = await fetch(uri + "/api/v1/profile", {
+                  headers: { authorization: "Bearer " + jwt },
+                });
+                const currentUser = await getCurrentUser.json();
+                console.log(currentUser);
+                if (currentUser.confirm_mail) {
+                  console.log("__updatED__");
+                  setLoggedIn(true);
+                  localStorage.setItem("jwt", jwt);
+                  alert(`Welcome ${currentUser.email}`);
+                } else {
+                  onLoginFail("Check your mail to confirm password update");
+                }
+              } else {
+                onLoginFail("No existing");
+              }
+            } catch (err) {
+              throw new Error(err);
+            }
+          } else {
+            alert("Bad input");
+            setLoading(false);
+            setLoggedIn(false);
+          }
         }
       } catch (err) {
-        console.log(err);
+        throw new Error(err);
       }
     }
 
+    if (method === "formIn") {
+      // check user with the jwt token return from the backend
+      const authData = JSON.stringify({
+        auth: { email: response.email, password: response.password },
+      });
+      try {
+        const getUserToken = await fetch(uri + "/api/v1/getUserToken", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: authData,
+        });
+
+        if (getUserToken.ok) {
+          const { jwt } = await getUserToken.json();
+          const getCurrentUser = await fetch(uri + "/api/v1/profile", {
+            headers: { authorization: "Bearer " + jwt },
+          });
+          const currentUser = await getCurrentUser.json();
+          console.log("In", currentUser.confirm_email);
+          if (currentUser.confirm_email) {
+            setLoggedIn(true);
+            localStorage.setItem("jwt", jwt);
+            alert(`Welcome ${currentUser.email}`);
+          } else {
+            onLoginFail("Please confirm with your email");
+          }
+        } else {
+          onLoginFail("Wrong credentials");
+        }
+      } catch (err) {
+        throw new Error(err);
+      }
+    }
     closeModal();
   }
 
   function onLoginFail(response) {
-    setLoading(false);
+    alert(response);
     setError(response);
+    setLoading(false);
+    setLoggedIn(false);
     setResult({ error: response });
   }
 
@@ -171,11 +285,39 @@ fields=id,name,email,picture.width(640).height(640)`);
 
   return (
     <>
-      <Container>
-        <button onClick={openModal} hidden={loggedIn}>
-          Connect
-        </button>
+      <Nav className="justify-content-center" activeKey="/home">
+        <Nav.Item>
+          <Nav.Link href="/home">Home</Nav.Link>
+        </Nav.Item>
+        <Nav.Item>
+          <button
+            onClick={openModal}
+            hidden={loggedIn}
+            style={{
+              padding: "10px",
+              margin: "20px",
+              border: "none",
+              backgroundColor: "blue",
+              color: "white",
+              fontWeight: "bold",
+            }}
+          >
+            Connect
+          </button>
+          {!!localStorage.jwt ? (
+            <button
+              onClick={() => {
+                setLoggedIn(false);
+                localStorage.removeItem("jwt");
+              }}
+            >
+              Logout
+            </button>
+          ) : null}
+        </Nav.Item>
+      </Nav>
 
+      <Container>
         <ReactModalLogin
           visible={showModal}
           onCloseModal={closeModal}

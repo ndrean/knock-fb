@@ -4,7 +4,9 @@
         resources :users, only: [:index, :show, :create, :destroy, :update]
         post '/getUserToken', to: 'user_token#create'
         get '/profile', to: 'users#profile'
-        post '/findCurrent', to: 'users#find'
+        post '/findCreateUser', to: 'users#find_create'
+        get '/mailconfirmation', to: 'users#confirmed_email'
+        # post '/findUser', to:'users#find_user'
       end
     end
     

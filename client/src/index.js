@@ -6,13 +6,6 @@ import LoginForm from "./LoginForm";
 //import App from "./App";
 import * as serviceWorker from "./serviceWorker";
 
-const handleSocialLogin = (user) => {
-  console.log(user);
-};
-
-const handleSocialLoginFailure = (err) => {
-  console.error(err);
-};
 ReactDOM.render(
   <React.StrictMode>
     <LoginForm />
