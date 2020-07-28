@@ -156,12 +156,23 @@ fields=id,name,email,picture.width(640).height(640)`);
           },
           body: authData,
         });
+        // if exists,
         if (getUserToken.ok) {
-          // if yes, return token
-          alert("Connected");
-          setLoggedIn(true);
-
           const { jwt } = await getUserToken.json();
+          const getCurrentUser = await fetch(uri + "/api/v1/profile", {
+            headers: { authorization: "Bearer " + jwt },
+          });
+          const currentUser = await getCurrentUser.json();
+          console.log(currentUser);
+          if (currentUser.confirm_mail && !currentUser.confirm_token) {
+            console.log("__updatED__");
+            setLoggedIn(true);
+            localStorage.setItem("jwt", jwt);
+            alert(`Welcome ${currentUser.email}`);
+          } else {
+            onLoginFail("1 Check your mail to confirm password update");
+          }
+
           const userLS = { email, password };
           localStorage.setItem("user", JSON.stringify(userLS));
           localStorage.setItem("jwt", jwt);
@@ -205,18 +216,16 @@ fields=id,name,email,picture.width(640).height(640)`);
                   localStorage.setItem("jwt", jwt);
                   alert(`Welcome ${currentUser.email}`);
                 } else {
-                  onLoginFail("Check your mail to confirm password update");
+                  onLoginFail("2 Check your mail to confirm password update");
                 }
               } else {
-                onLoginFail("No existing");
+                onLoginFail("Not existing");
               }
             } catch (err) {
               throw new Error(err);
             }
           } else {
-            alert("Bad input");
-            setLoading(false);
-            setLoggedIn(false);
+            onLoginFail("Bad input");
           }
         }
       } catch (err) {
@@ -244,8 +253,9 @@ fields=id,name,email,picture.width(640).height(640)`);
             headers: { authorization: "Bearer " + jwt },
           });
           const currentUser = await getCurrentUser.json();
-          console.log("In", currentUser.confirm_email);
-          if (currentUser.confirm_email) {
+          console.log(currentUser.confirm_token);
+          console.log(currentUser.confirm_email && !currentUser.confirm_token);
+          if (currentUser.confirm_email && !currentUser.confirm_token) {
             setLoggedIn(true);
             localStorage.setItem("jwt", jwt);
             alert(`Welcome ${currentUser.email}`);
@@ -339,24 +349,24 @@ fields=id,name,email,picture.width(640).height(640)`);
           form={{
             onLogin: onLogin,
             onRegister: onRegister,
-            onRecoverPassword: onRecoverPassword,
-            recoverPasswordSuccessLabel: recoverPasswordSuccess
-              ? {
-                  label: "New password has been sent to your mailbox!",
-                }
-              : null,
-            recoverPasswordAnchor: {
-              label: "Forgot your password?",
-            },
+            // onRecoverPassword: onRecoverPassword,
+            // recoverPasswordSuccessLabel: recoverPasswordSuccess
+            //   ? {
+            //       label: "New password has been sent to your mailbox!",
+            //     }
+            //   : null,
+            // recoverPasswordAnchor: {
+            //   label: "Forgot your password?",
+            // },
             loginBtn: {
               label: "Sign in",
             },
             registerBtn: {
               label: "Sign up",
             },
-            recoverPasswordBtn: {
-              label: "Send new password",
-            },
+            // recoverPasswordBtn: {
+            //   label: "Send new password",
+            // },
             loginInputs: [
               {
                 containerClass: "RML-form-group",

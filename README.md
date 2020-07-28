@@ -50,14 +50,16 @@ The Knock gem expects the request (POST to http://localhost:3000/api/v1/get_toke
 
 ```json
 {
-  auth:{
-    email:"toto@test.fr,
-    password:"password"
+  "auth": {
+    "email": "toto@test.fr",
+    "password": "password"
   }
 }
 ```
 
 > Note: `current_user` is available for all the controllers.
+
+Once you have a token, you can get the user data with:
 
 ```ruby
 #api/v1/UsersControllers
