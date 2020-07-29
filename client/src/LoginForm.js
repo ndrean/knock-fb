@@ -5,10 +5,10 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Nav from "react-bootstrap/Nav";
 
-import { myappId, uri } from "./ids";
+import { myAppId, myAppSecret, uri } from "./ids";
 
 const facebookConfig = {
-  appId: myappId,
+  appId: myAppId,
   cookie: true,
   xfbml: true,
   version: "v7.0",
@@ -84,8 +84,7 @@ export default function LoginForm() {
         authResponse: { accessToken, userID },
       } = response;
 
-      // call Facebook to get user credentials
-      // window.FB.api(userID, (res) =>{ setResult(res.name )})
+      // call Facebook to get user credentials: window.FB.api(userID, (res) =>{ setResult(res.name )})
       const query = await fetch(`https://graph.facebook.com/me?access_token=${accessToken}&
 fields=id,name,email,picture.width(640).height(640)`);
       const {
@@ -97,57 +96,60 @@ fields=id,name,email,picture.width(640).height(640)`);
         },
       } = await query.json();
 
-      setResult((prev) => {
-        return { ...prev, accessToken, email, name, FBId: id, url };
+      const fbUserData = {
+        user: {
+          email,
+          uid: id,
+        },
+      };
+      const queryAppToken = await fetch(uri + "/api/v1/findCreateFbUser", {
+        method: "POST",
+        body: JSON.stringify(fbUserData),
+        headers: { "Content-Type": "application/json" },
       });
-      const fbUser = JSON.stringify({
-        user: { email: email, password: accessToken },
-      });
-      try {
-        const checkFbUser = await fetch(uri + "/api/v1/findCreateUser", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: fbUser,
-        });
-        if (checkFbUser.ok) {
-          const fbUser = await checkFbUser.json();
-          try {
-            const FbUserData = JSON.stringify({
-              auth: {
-                email: fbUser.email,
-                password_digest: fbUser.password_digest,
-              },
+      if (queryAppToken.ok) {
+        const { access_token } = await queryAppToken.json();
+        const payload = {
+          auth: { email, password: access_token, access_token },
+        };
+        try {
+          const queryFbCreateUser = await fetch(uri + "/api/v1/getUserToken", {
+            method: "POST",
+            body: JSON.stringify(payload),
+            headers: { "Content-Type": "application/json" },
+          });
+          if (queryFbCreateUser.ok) {
+            const { jwt } = await queryFbCreateUser.json();
+            const getCurrentUser = await fetch(uri + "/api/v1/profile", {
+              headers: { authorization: "Bearer " + jwt },
             });
-            const getFbUserToken = fetch(uri + "/api/v1/getUserToken", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: FbUserData,
-            });
-            if (getFbUserToken.ok) {
-              const data = await getFbUserToken.json();
+            const currentUser = await getCurrentUser.json();
+
+            if (currentUser.confirm_email && !currentUser.confirm_token) {
+              setLoggedIn(true);
+              localStorage.setItem("jwt", jwt);
+              localStorage.setItem("user", currentUser.email);
+              alert(`Welcome ${currentUser.email}`);
             } else {
-              alert("failed");
+              onLoginFail("Check your mail to confirm password update");
             }
-          } catch (err) {
-            onLoginFail(err);
-            // alert(err);
-            // console.log("err1", err);
+          } else {
+            onLoginFail("Check your mail to confirm password update");
           }
-        } else {
-          onLoginFail("You are not signed up");
+        } catch (err) {
+          throw new Error(err);
         }
-      } catch (err) {
-        throw new Error(err);
+      } else {
+        onLoginFail("Please confirm with your email");
       }
     }
 
+    const authData = JSON.stringify({
+      auth: { email, password },
+    });
+
     if (method === "formUp") {
       // 1- check if user already exists with these credentials
-      const authData = JSON.stringify({
-        auth: { email: response.email, password: response.password },
-      });
       try {
         const getUserToken = await fetch(uri + "/api/v1/getUserToken", {
           method: "POST",
@@ -156,45 +158,36 @@ fields=id,name,email,picture.width(640).height(640)`);
           },
           body: authData,
         });
-        // if exists,
+
         if (getUserToken.ok) {
           const { jwt } = await getUserToken.json();
           const getCurrentUser = await fetch(uri + "/api/v1/profile", {
             headers: { authorization: "Bearer " + jwt },
           });
           const currentUser = await getCurrentUser.json();
-          console.log(currentUser);
-          if (currentUser.confirm_mail && !currentUser.confirm_token) {
-            console.log("__updatED__");
+          if (currentUser.confirm_email && !currentUser.confirm_token) {
+            console.log("__confirmed__");
             setLoggedIn(true);
             localStorage.setItem("jwt", jwt);
+            localStorage.setItem("user", currentUser.email);
             alert(`Welcome ${currentUser.email}`);
+            setResult("confirmed");
           } else {
-            onLoginFail("1 Check your mail to confirm password update");
+            onLoginFail("Check your mail to confirm password update 1");
           }
-
-          const userLS = { email, password };
-          localStorage.setItem("user", JSON.stringify(userLS));
-          localStorage.setItem("jwt", jwt);
-          setResult((prev) => {
-            return { ...prev, jwt: jwt };
-          });
         } else {
           console.log("__update__");
           // credentials don't exist: update with received credentials via email
           const userData = JSON.stringify({
             user: { email: response.email, password: response.password },
           });
-          const checkUser = await fetch(uri + "/api/v1/findCreateUser", {
+          const checkUser = await fetch(uri + "/api/v1/createUser", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: userData,
           });
 
           if (checkUser.ok) {
-            const authData = JSON.stringify({
-              auth: { email, password },
-            });
             try {
               const getUserToken = await fetch(uri + "/api/v1/getUserToken", {
                 method: "POST",
@@ -203,20 +196,25 @@ fields=id,name,email,picture.width(640).height(640)`);
                 },
                 body: authData,
               });
-              const { jwt } = await getUserToken.json();
+
               if (getUserToken.ok) {
+                console.log("updated in db, waiting for mail confirmation");
+                const { jwt } = await getUserToken.json();
+
+                // check in db if email_confirmed with the token
                 const getCurrentUser = await fetch(uri + "/api/v1/profile", {
                   headers: { authorization: "Bearer " + jwt },
                 });
                 const currentUser = await getCurrentUser.json();
-                console.log(currentUser);
-                if (currentUser.confirm_mail) {
-                  console.log("__updatED__");
+
+                if (currentUser.confirm_mail && !currentUser.confirm_token) {
+                  console.log("__updated__");
                   setLoggedIn(true);
                   localStorage.setItem("jwt", jwt);
+                  localStorage.setItem("user", currentUser.email);
                   alert(`Welcome ${currentUser.email}`);
                 } else {
-                  onLoginFail("2 Check your mail to confirm password update");
+                  onLoginFail("Check your mail to confirm password update 2");
                 }
               } else {
                 onLoginFail("Not existing");
@@ -235,9 +233,6 @@ fields=id,name,email,picture.width(640).height(640)`);
 
     if (method === "formIn") {
       // check user with the jwt token return from the backend
-      const authData = JSON.stringify({
-        auth: { email: response.email, password: response.password },
-      });
       try {
         const getUserToken = await fetch(uri + "/api/v1/getUserToken", {
           method: "POST",
@@ -248,16 +243,16 @@ fields=id,name,email,picture.width(640).height(640)`);
         });
 
         if (getUserToken.ok) {
+          // need to have mail checked to enter
           const { jwt } = await getUserToken.json();
           const getCurrentUser = await fetch(uri + "/api/v1/profile", {
             headers: { authorization: "Bearer " + jwt },
           });
           const currentUser = await getCurrentUser.json();
-          console.log(currentUser.confirm_token);
-          console.log(currentUser.confirm_email && !currentUser.confirm_token);
           if (currentUser.confirm_email && !currentUser.confirm_token) {
             setLoggedIn(true);
             localStorage.setItem("jwt", jwt);
+            localStorage.setItem("user", response.email);
             alert(`Welcome ${currentUser.email}`);
           } else {
             onLoginFail("Please confirm with your email");
@@ -270,6 +265,7 @@ fields=id,name,email,picture.width(640).height(640)`);
       }
     }
     closeModal();
+    setLoading(false);
   }
 
   function onLoginFail(response) {
@@ -278,6 +274,8 @@ fields=id,name,email,picture.width(640).height(640)`);
     setLoading(false);
     setLoggedIn(false);
     setResult({ error: response });
+    localStorage.removeItem("jwt");
+    localStorage.removeItem("user");
   }
 
   function startLoading() {
@@ -314,11 +312,12 @@ fields=id,name,email,picture.width(640).height(640)`);
           >
             Connect
           </button>
-          {!!localStorage.jwt ? (
+          {localStorage.jwt ? (
             <button
               onClick={() => {
                 setLoggedIn(false);
                 localStorage.removeItem("jwt");
+                localStorage.removeItem("user");
               }}
             >
               Logout

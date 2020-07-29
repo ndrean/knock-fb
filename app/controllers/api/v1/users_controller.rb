@@ -1,51 +1,61 @@
 class Api::V1::UsersController < ApplicationController
   before_action( :authenticate_user, only: [ :destroy, :profile] )
 
+  # endpoint check user
   def profile
     render json: current_user
   end
 
-
-  def find_create
-    
-    user = User.find_by(email: user_params[:email])
-    return render json: { status: :not_acceptable }  if user && !user_params[:password]
-
-    user = User.new(user_params) if !user
-    
-    if user.confirm_token.blank?
-      user.confirm_token = user.set_confirmation_token
-      logger.debug "..........TOKEN......#{user.confirm_token}"
-      UserMailer.register(user.email, user.confirm_token).deliver_now if user.confirm_token
+  def find_create_with_fb   
+    fb_user = User.find_or_create_by(uid: user_params['uid']) do |user|
+      user.email = user_params['email']
+      pwd = SecureRandom.urlsafe_base64.to_s
+      user.password = pwd
+      user.access_token = pwd
+      user.uid = user_params['uid']
+      user.save
     end
+    if fb_user.confirm_token.blank? && !fb_user.confirm_email
+      fb_user.confirm_token = SecureRandom.urlsafe_base64.to_s
+      UserMailer.register(fb_user.email, fb_user.confirm_token).deliver_now #if fb_user.confirm_token
+      fb_user.save
+    end
+    if fb_user.confirm_email
+      logger.debug ".............CONFIRMED BY MAIL....#{fb_user.confirm_email}"
+      return render json: fb_user, status: 200 if fb_user.save
+    end
+    render json: { status: 401 }
+  end
 
-    logger.debug "............Confirmation_token..#{user.confirm_token}"
+  def create_user
+    return render json: { status: :not_acceptable }  if !user_params[:password]
+    user = User.find_by(email: user_params[:email])
+    user.password = user_params[:password] if user
+    user = User.create(user_params) if !user
+    if user.confirm_token.blank? #&& !user.confirm_email
+      user.confirm_token = SecureRandom.urlsafe_base64.to_s
+      user.save
+      UserMailer.register(user.email, user.confirm_token).deliver_now
+    end
     
-    user.password = user_params[:password]
-    user.save
-    logger.debug "..................#{user.confirm_email}"
-    if user.confirm_email
-      #user.password = user_params[:password]
-      logger.debug ".............CONFIRMED BY MAIL....#{user.confirm_email}"
-      #user.confirm_email = false
-      return render json: user, status: 200 if user.save
+    if user.confirm_email && user.confirm_token.blank?
+      return render json: user, status: 200
     end
 
     render json: { status: 401 }
   end
     
-    def confirmed_email
-      logger.debug "..............#{params}"
-      user = User.find_by(confirm_token: params[:mail_token])
-      if user
-        logger.debug "..............FOUND...#{user.email}"
-        user.confirm_token = nil
-        user.confirm_email = true
-        user.save
-        render json: user, status: 200
-      end
-      #user.email_activate if user  
+  # endpoint of link via mail
+  def confirmed_email
+    user = User.find_by(confirm_token: params[:mail_token])
+    if user
+      user.confirm_token = nil
+      user.confirm_email = true
+      user.save
+      return render json: user, status: 200
     end
+    render json: { status: 401 }
+  end
 
   def index
     render json: User.all
@@ -57,27 +67,6 @@ class Api::V1::UsersController < ApplicationController
     render json: user
   end
 
-  # POST /users
-  def create
-    user = User.new(user_params)
-    render json: auth_token
-    
-    if user.save
-      render json: user.to_token_payload  , status: :created
-    else
-      render json: user.errors, status: :unprocessable_entity
-    end
-  end
-
-  # PATCH/PUT /users/1
-  def update
-    user = User.find(params[:id])
-    if user.update(user_params)
-      render json: @user
-    else
-      render json: @user.errors, status: :unprocessable_entity
-    end
-  end
 
   # DELETE /users/1
   def destroy
@@ -88,14 +77,12 @@ class Api::V1::UsersController < ApplicationController
   end
 
   private
-    # Use callbacks to share common setup or constraints between actions.
     def auth_params
-      params.require(:auth).permit( :access_token, :email, :password_digest, :access_token)
+      params.require(:auth).permit( :email, :password_digest, :access_token, :uid)
     end
 
-    # Only allow a trusted parameter "white list" through.
     def user_params
-      params.require(:user).permit(:email, :name, :password, :password_digest)
+      params.require(:user).permit(:email, :name, :password, :password_digest, :access_token, :uid)
     end
 
     

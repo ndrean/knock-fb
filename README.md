@@ -1,3 +1,7 @@
+# Confirmation mail Rails
+
+<https://coderwall.com/p/u56rra/ruby-on-rails-user-signup-email-confirmation-tutorial>
+
 # Rails Credentials
 
 eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE1OTYwMzYxOTEsInN1YiI6MzZ9.uIU4DY5tdAnewiIoHoNBXWliVk-xbM3Wf_J28QmN9tM
