@@ -1,6 +1,5 @@
-const myAppId = "1157740244582839";
-const myAppSecret = "24e9db843fc4e0bfa01129b1aeb20e9e";
-
-const uri = "http://localhost:3001";
+const myAppId = process.env.REACT_APP_FB_ID;
+const myAppSecret = process.env.REACT_APP_FB_SECRET;
+const uri = process.env.REACT_APP_URL; //"http://localhost:3001";
 
 export { myAppId, myAppSecret, uri };
