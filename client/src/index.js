@@ -2,13 +2,16 @@ import React from "react";
 import ReactDOM from "react-dom";
 import "./index.css";
 //import FBLogin from "./FBLogin";
-import LoginForm from "./LoginForm";
-//import App from "./App";
+//import LoginForm from "./LoginForm";
+import MyNavBar from "./nav";
 import * as serviceWorker from "./serviceWorker";
+
+import "bootstrap/dist/css/bootstrap.min.css";
 
 ReactDOM.render(
   <React.StrictMode>
-    <LoginForm />
+    <MyNavBar />
+    {/* <LoginForm /> */}
   </React.StrictMode>,
   document.getElementById("root")
 );

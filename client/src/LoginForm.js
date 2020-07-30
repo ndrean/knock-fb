@@ -4,6 +4,8 @@ import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Nav from "react-bootstrap/Nav";
+import Image from "react-bootstrap/Image";
+import Button from "react-bootstrap/Button";
 
 import { myAppId, myAppSecret, uri } from "./ids";
 
@@ -20,17 +22,15 @@ export default function LoginForm() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
   const [loggedIn, setLoggedIn] = React.useState(false);
-  // const [initialTab, setInitialTal] = React.useState(null);
+  const [initialTab, setInitialTal] = React.useState(null);
+  const [avatar, setAvatar] = React.useState("");
   const [recoverPasswordSuccess, setRecoverPasswordSuccess] = React.useState(
     null
   );
   const [result, setResult] = React.useState("");
 
   function openModal() {
-    // setShowModal(true);
-    // if (loggedIn === false) {
     setShowModal(true);
-    // }
   }
 
   function closeModal() {
@@ -95,7 +95,7 @@ fields=id,name,email,picture.width(640).height(640)`);
           data: { url, height, width },
         },
       } = await query.json();
-
+      setAvatar(url);
       const fbUserData = {
         user: {
           email,
@@ -108,9 +108,10 @@ fields=id,name,email,picture.width(640).height(640)`);
         headers: { "Content-Type": "application/json" },
       });
       if (queryAppToken.ok) {
-        const { access_token } = await queryAppToken.json();
+        const { access_token, name } = await queryAppToken.json();
+
         const payload = {
-          auth: { email, password: access_token, access_token },
+          auth: { email, password: name }, //: access_token, access_token },
         };
         try {
           const queryFbCreateUser = await fetch(uri + "/api/v1/getUserToken", {
@@ -293,38 +294,60 @@ fields=id,name,email,picture.width(640).height(640)`);
 
   return (
     <>
-      <Nav className="justify-content-center" activeKey="/home">
-        <Nav.Item>
-          <Nav.Link href="/home">Home</Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <button
-            onClick={openModal}
-            hidden={loggedIn}
+      <Container>
+        <Button
+          onClick={openModal}
+          hidden={loggedIn}
+          style={{
+            padding: "10px",
+            margin: "auto",
+            border: "none",
+            backgroundColor: "#1666C5", //"#3b5998",
+            color: "white",
+            fontWeight: "bold",
+            fontSize: "20px",
+          }}
+        >
+          Connect
+        </Button>
+      </Container>
+      <Container>
+        {!!localStorage.jwt ? (
+          <Button
+            onClick={() => {
+              setLoggedIn(false);
+              localStorage.removeItem("jwt");
+              localStorage.removeItem("user");
+              setAvatar("");
+              setResult("");
+            }}
             style={{
               padding: "10px",
-              margin: "20px",
+              margin: "auto",
               border: "none",
-              backgroundColor: "blue",
+              backgroundColor: "grey", //"#3b5998",
               color: "white",
               fontWeight: "bold",
+              fontSize: "20px",
             }}
           >
-            Connect
-          </button>
-          {localStorage.jwt ? (
-            <button
-              onClick={() => {
-                setLoggedIn(false);
-                localStorage.removeItem("jwt");
-                localStorage.removeItem("user");
-              }}
-            >
-              Logout
-            </button>
-          ) : null}
-        </Nav.Item>
-      </Nav>
+            {" "}
+            {!avatar && result.response ? (
+              result.response.email
+            ) : avatar ? (
+              <Image
+                alt="avatar"
+                src={avatar}
+                style={{ width: 50, height: 50 }}
+                loading="lazy"
+                // roundedCircle
+              />
+            ) : (
+              "Logout"
+            )}
+          </Button>
+        ) : null}
+      </Container>
 
       <Container>
         <ReactModalLogin

@@ -1,3 +1,41 @@
+# bootstrap
+
+```bash
+> yarn add react-bootstrap bootstrap
+```
+
+and add in `index.js`:
+
+```js
+import "bootstrap/dist/css/bootstrap.min.css";
+```
+
+and use:
+
+```js
+import Button from "react-bootstrap/Button";
+```
+
+# foreman
+
+Do not install `foreman` in the `Gemfile`
+
+```bash
+> gem install foreman
+> bundle install
+```
+
+Append the `ProcFile` with the process (React front end, Rails API back end, Sidekiq...):
+
+```
+# ProcFile
+web: cd client && PORT=3000 yarn run start
+api: PORT=3001 && bundle exec rails s
+```
+
+and run `foreman start` to run both Weback and Rails servers.
+For production: <http://blog.daviddollar.org/2011/05/06/introducing-foreman.html>
+
 # Confirmation mail Rails
 
 <https://coderwall.com/p/u56rra/ruby-on-rails-user-signup-email-confirmation-tutorial>

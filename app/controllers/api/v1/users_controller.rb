@@ -1,5 +1,5 @@
 class Api::V1::UsersController < ApplicationController
-  before_action( :authenticate_user, only: [ :destroy, :profile] )
+  #before_action( :authenticate_user, only: [ :destroy] )
 
   # endpoint check user
   def profile
@@ -11,7 +11,8 @@ class Api::V1::UsersController < ApplicationController
       user.email = user_params['email']
       pwd = SecureRandom.urlsafe_base64.to_s
       user.password = pwd
-      user.access_token = pwd
+      user.name = pwd
+      #user.access_token = pwd
       user.uid = user_params['uid']
       user.save
     end
